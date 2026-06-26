@@ -47,6 +47,21 @@ app.get('/health', async (req, res) => {
     });
 });
 
+app.get('/test-db', async (req, res) => {
+    try {
+        const result = await tiendaPool.query('SELECT NOW()');
+        res.json({
+            ok: true,
+            fecha: result.rows[0]
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            ok: false,
+            error: err.message
+        });
+    }
+});
 
 /* =========================
    1. ESTADO CORRIDA
