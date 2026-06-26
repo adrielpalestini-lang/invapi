@@ -37,6 +37,17 @@ const tiendaPool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
+
+app.get('/health', async (req, res) => {
+    res.json({
+        ok: true,
+        puerto: process.env.PORT,
+        tiendaHost: process.env.DB_TIENDA_HOST,
+        comercialHost: process.env.DB_COMERCIAL_HOST
+    });
+});
+
+
 /* =========================
    1. ESTADO CORRIDA
 ========================= */
