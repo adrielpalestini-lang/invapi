@@ -105,6 +105,31 @@ app.get('/buscar-nombre', async (req, res) => {
     }
 });
 
+
+// --- MODIFICADO: CONSULTAR TODO DE UNA CORRIDA ESPECÍFICA ---
+app.get('/consultar-todo/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await tiendaPool.query(`
+            SELECT 
+                usuario, 
+                almacen, 
+                codigo, 
+                nombre, 
+                SUM(cantidad) as cantidad, 
+                MAX(fecha) as fecha 
+            FROM inventario 
+            WHERE id_corrida = $1
+            GROUP BY usuario, almacen, codigo, nombre
+            ORDER BY fecha DESC
+        `, [id]);
+        res.json(result.rows);
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+
 /* =========================
    5. CONSULTAR PRODUCTO + DUPLICADO
 ========================= */
