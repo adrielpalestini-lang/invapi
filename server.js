@@ -194,42 +194,97 @@ app.post('/borrar-captura', async (req, res) => {
 /* =========================
    8. EXPORTAR CSV
 ========================= */
+/* =========================
+   8. EXPORTAR CSV
+========================= */
 app.get('/exportar-csv/:id', async (req, res) => {
     try {
+
         const { id } = req.params;
 
-        const result = await tiendaPool.query(`
-            SELECT 
-                i.almacen,
-                i.codigo,
-                i.nombre,
-                SUM(i.cantidad) as cantidad_total,
-                STRING_AGG(DISTINCT i.usuario, ', ') as usuarios_lista,
-                MAX(i.fecha) as fecha_final,
-                CASE WHEN p.sku IS NULL THEN 'SÍ' ELSE 'NO' END as es_nuevo
-            FROM inventario i
-            LEFT JOIN products p ON i.codigo = p.sku
-            WHERE i.id_corrida = $1
-            GROUP BY i.almacen, i.codigo, i.nombre, p.sku
-            ORDER BY es_nuevo ASC, i.almacen ASC, i.nombre ASC
+        // ===========================
+        // Inventario (BD TIENDA)
+        // ===========================
+        const inventario = await tiendaPool.query(`
+            SELECT
+                almacen,
+                codigo,
+                nombre,
+                SUM(cantidad) AS cantidad_total,
+                STRING_AGG(DISTINCT usuario, ', ') AS usuarios_lista,
+                MAX(fecha) AS fecha_final
+            FROM inventario
+            WHERE id_corrida = $1
+            GROUP BY almacen, codigo, nombre
+            ORDER BY almacen ASC, nombre ASC
         `, [id]);
 
-        const header = "Almacen,Codigo,Nombre,Cantidad Total,Usuarios,Ultimo Registro,Nuevo\n";
+        // ===========================
+        // Catálogo (BD COMERCIAL)
+        // ===========================
+        const productos = await comercialPool.query(`
+            SELECT sku
+            FROM products
+        `);
 
-        const rows = result.rows.map(r => {
+        // Crear Set para búsqueda rápida
+        const skuSet = new Set(
+            productos.rows.map(p => String(p.sku).trim())
+        );
+
+        // ===========================
+        // Encabezado CSV
+        // ===========================
+        const header =
+            "Almacen,Codigo,Nombre,Cantidad Total,Usuarios,Ultimo Registro,Nuevo\n";
+
+        // ===========================
+        // Filas
+        // ===========================
+        const rows = inventario.rows.map(r => {
+
+            const codigo = String(r.codigo).trim();
+
+            const esNuevo = skuSet.has(codigo)
+                ? "NO"
+                : "SÍ";
+
             const fecha = r.fecha_final
-                ? new Date(r.fecha_final).toISOString().replace('T', ' ').split('.')[0]
-                : '---';
+                ? new Date(r.fecha_final)
+                    .toISOString()
+                    .replace('T', ' ')
+                    .split('.')[0]
+                : "---";
 
-            return `${r.almacen},"${r.codigo}","${r.nombre}",${r.cantidad_total},"${r.usuarios_lista}",${fecha},${r.es_nuevo}`;
+            return `${r.almacen},"${codigo}","${r.nombre}",${r.cantidad_total},"${r.usuarios_lista}",${fecha},${esNuevo}`;
+
         }).join("\n");
 
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename=inventario_${id}.csv`);
+        // ===========================
+        // Respuesta
+        // ===========================
+        res.setHeader(
+            'Content-Type',
+            'text/csv; charset=utf-8'
+        );
+
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=inventario_${id}.csv`
+        );
+
+        // BOM UTF-8 para Excel
         res.send('\uFEFF' + header + rows);
 
     } catch (err) {
-        res.status(500).send("Error exportando CSV");
+
+        console.error(err);
+
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+
     }
 });
 
