@@ -38,30 +38,6 @@ const tiendaPool = new Pool({
 });
 
 
-app.get('/health', async (req, res) => {
-    res.json({
-        ok: true,
-        puerto: process.env.PORT,
-        tiendaHost: process.env.DB_TIENDA_HOST,
-        comercialHost: process.env.DB_COMERCIAL_HOST
-    });
-});
-
-app.get('/test-db', async (req, res) => {
-    try {
-        const result = await tiendaPool.query('SELECT NOW()');
-        res.json({
-            ok: true,
-            fecha: result.rows[0]
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({
-            ok: false,
-            error: err.message
-        });
-    }
-});
 
 /* =========================
    1. ESTADO CORRIDA
